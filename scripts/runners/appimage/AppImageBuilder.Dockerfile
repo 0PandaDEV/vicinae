@@ -228,8 +228,16 @@ RUN git clone --recursive https://github.com/KDE/syntax-highlighting --branch v6
 RUN cd syntax-highlighting && /usr/bin/cmake -B build -DKSYNTAXHIGHLIGHTING_USE_GUI=OFF && /usr/bin/cmake --build build --parallel $(nproc) && /usr/bin/cmake --install build
 
 # install node 22 (used to build the main vicinae binary and bundled in the app image)
-RUN wget https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz
-RUN mkdir /opt/node && tar -xf node-v${NODE_VERSION}-linux-x64.tar.xz --strip-components=1 -C /opt/node && rm -rf *.tar.xz
+RUN ARCH=$(uname -m) && \
+    case "$ARCH" in \
+        x86_64)  NODE_ARCH=x64 ;; \
+        aarch64) NODE_ARCH=arm64 ;; \
+        *) echo "unsupported arch: $ARCH" && exit 1 ;; \
+    esac && \
+    wget https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+    mkdir /opt/node && \
+    tar -xf node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz --strip-components=1 -C /opt/node && \
+    rm -rf *.tar.xz
 
 FROM ubuntu:22.04 AS runtime
 
@@ -298,14 +306,14 @@ COPY --from=deps-builder /opt/gcc /opt/gcc
 COPY --from=deps-builder /usr/local /usr/local
 COPY --from=deps-builder /opt/node /opt/node
 
-ENV LINUXDEPLOY_APPIMAGE_URL "https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage"
-ENV LINUXDEPLOY_PLUGIN_QT_APPIMAGE_URL "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-x86_64.AppImage"
-
-RUN wget -O /usr/local/bin/linuxdeploy "${LINUXDEPLOY_APPIMAGE_URL}" && chmod +x /usr/local/bin/linuxdeploy
-RUN wget -O /usr/local/bin/linuxdeploy-plugin-qt "${LINUXDEPLOY_PLUGIN_QT_APPIMAGE_URL}" && chmod +x /usr/local/bin/linuxdeploy-plugin-qt
+RUN ARCH=$(uname -m) && \
+    LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-${ARCH}.AppImage" && \
+    LINUXDEPLOY_QT_URL="https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-${ARCH}.AppImage" && \
+    wget -O /usr/local/bin/linuxdeploy "${LINUXDEPLOY_URL}" && chmod +x /usr/local/bin/linuxdeploy && \
+    wget -O /usr/local/bin/linuxdeploy-plugin-qt "${LINUXDEPLOY_QT_URL}" && chmod +x /usr/local/bin/linuxdeploy-plugin-qt
 
 ENV PATH="/opt/gcc/bin:/opt/node/bin:${PATH}"
-ENV LD_LIBRARY_PATH="/opt/gcc/lib64:/usr/local/lib:/usr/local/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+ENV LD_LIBRARY_PATH="/opt/gcc/lib64:/usr/local/lib:/usr/local/lib/x86_64-linux-gnu:/usr/local/lib/aarch64-linux-gnu:${LD_LIBRARY_PATH}"
 ENV CC=/opt/gcc/bin/gcc
 ENV CXX=/opt/gcc/bin/g++
 

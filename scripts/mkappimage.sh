@@ -21,7 +21,12 @@ cp extra/vicinae.png ${APPDIR}
 cp extra/vicinae.desktop ${APPDIR}
 
 # https://github.com/linuxdeploy/linuxdeploy-plugin-qt/issues/57
-cp /usr/lib/x86_64-linux-gnu/libssl.so* ${APPDIR}/usr/lib/
+case "$(uname -m)" in
+	x86_64)  LIBDIR=/usr/lib/x86_64-linux-gnu ;;
+	aarch64) LIBDIR=/usr/lib/aarch64-linux-gnu ;;
+	*) die "unsupported arch: $(uname -m)" ;;
+esac
+cp ${LIBDIR}/libssl.so* ${APPDIR}/usr/lib/
 
 export QML_SOURCES_PATHS=$PWD/src/server/src/qml/qml
 export EXTRA_PLATFORM_PLUGINS=libqwayland.so
